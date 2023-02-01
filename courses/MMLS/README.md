@@ -4,6 +4,11 @@ These folders are used to store the notes on this course.
 
 I am assuming that we are working in a `conda`-enabled session (see the initial README).
 
+## Setup
+To setup, install Jupyter with `conda install jupyter`, then install the packages `numpy`, `matplotlib` and `sympy` with `pip install numpy matplotlib sympy`.
+
+If you installed anaconda (and not miniconda) you can probably skip this step.
+
 ## Index
 - [Lesson 1](https://github.com/MrHedmad/phd-alignment-notes/blob/main/courses/MMLS/1_2023_01_30.md): Introduction to Python. Math in python.
   - [Notebook 1.0](https://github.com/MrHedmad/phd-alignment-notes/blob/main/courses/MMLS/src/1.0_introduction.ipynb): Introduction to Python. Basics of Jupyter notebooks. Simple mathematics. Functions.
