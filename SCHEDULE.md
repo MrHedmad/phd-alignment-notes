@@ -7,7 +7,7 @@ This is the course schedule.
 - Lesson 2/4 :: 2023.01.31 - @ Informatics Department
 - ~~Lesson 3/4 :: 2023.02.01 - @ Informatics Department~~ Professor is ill. Shifted in the future.
 - Lesson 3/4 :: 2023.02.03 - @ Informatics Department
-- Lesson 4/4 :: ??? @ ???
+- Lesson 4/4 :: 2023.02.08 - @ Informatics Department - Filling in for missing lecture
 - Exam :: ??? - @ ???
 
 ## Bioinformatics and Computational Models
