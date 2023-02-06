@@ -1,0 +1,323 @@
+---
+title: "Lesson 1 - Cordero - The 6th of February, 2023"
+author: "Luca Visentin"
+date: "2023-02-06"
+output: html_document
+---
+
+There won't be any lesson tomorrow afternoon.
+There will be a new lesson Friday, the 17th of Feb, 2023, from 15:00 to 18:00.
+
+## Info
+
+- We will start with some R basics, some bioinformatics basics, and the some modelling.
+- Ppl familiar with R can just solve the exercises, without having to follow along.
+- The exam will be a small report of all these lessons, with perhaps a small input from each of us.
+
+There's a moodle website for this course.
+
+We don't need to install R studio or R as we can use the hosted versions provided by the department. People who have the R/Rstudio combo already in their laptops can just use their local version. I'm User13. I've saved the login info on a `secrets.txt` file that is not committed.
+
+## Covid19
+
+We will analyze covid19 data. There is a `COVID19` package to install, which contains a large dataframe with many variables regarding covid19 infections.
+
+The granularity of the dataset is country-level plus the Grand Princess cruise ship, that was studied in particular.
+The data are recorded day-wise.
+
+There are videos on the web for people who do not know R.
+
+Follow the `.pdf` for today's exercises on this dataframe.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+We will start by analyzing some Covid-19 data.
+
+```{r}
+library(tidyverse)
+
+covid <- COVID19::covid19(start="2019-01-01", verbose = FALSE)
+
+pprint <- function(...) {
+  str <- paste0(...)
+  
+  cat(str)
+}
+```
+
+Let's start with some exploratory data description:
+
+There are many variables in this dataset. For instance:
+- `date`: When the measure was taken;
+- `confirmed`: The number of confirmed cases of covid19, cumulative with previous days;
+- `deaths`: The number of confirmed deaths due to covid19, cumulative with previous days;
+- `administrative_area_level`: These variables refer to the country or region that they refer to.
+
+We will select just a subset of the variables of interest to work with:
+
+```{r}
+ccovid <- covid # Just to save it
+covid |>
+  select(
+    c(
+      "date", # The day the measure was taken
+      "confirmed", # N. of confirmed cases, cumulative
+      "deaths", # N. of confirmed deaths due to covid19, cumulative
+      "recovered", # N. of recovered people from covid19, cumulative
+      "tests", # N. of tests performed, cumulative
+      "people_fully_vaccinated", # N. of fully vaccinated people against covid19, cumulative
+      "administrative_area_level_1", # Country of referral
+      "population" # Population of the country of interest (at some point? Latest census?)
+    )
+  ) %>%
+  rename(country = administrative_area_level_1) -> covid
+```
+
+We can see the normal summary:
+```{r}
+summary(covid)
+```
+
+
+```{r}
+# Number of days that are in the dataset
+pprint("There are ", nrow(covid), " days in the dataset.\n")
+
+# Number of countries (with the Grand Princess as an extra)
+pprint("There are ", length(unique(covid$country)), " unique countries: ", paste0(unique(covid$country), collapse=", "))
+# There's the Holy See too!
+```
+
+Through sorting, we can see the countries with the most number of cases, overall.
+This would be nice to be normalized by the number of people per country.
+
+```{r}
+covid$norm_confirmed <- covid$confirmed / covid$population
+covid$norm_vaccinated <- covid$people_fully_vaccinated / covid$population
+
+# The number of cases can only grow, so we can get just one (recent) in the 
+# dataset, and use that as the max value for the country
+today <- covid[covid$date == "2023-02-01",] # @ the first of february
+
+extract_stat <- function(data, title, interest_col, n = 10, round = TRUE) {
+  data[order(data[[interest_col]], decreasing = TRUE), c("country", interest_col)] %>%
+    head(n) -> data
+  
+  if (round) {
+    data[[interest_col]] <- round(data[[interest_col]], 3)
+  }
+  
+  str <- paste(data$country, data[[interest_col]], sep = ": ") %>% paste0(collapse = ", ")
+  
+  pprint(title, str, "\n\n")
+}
+
+extract_stat(today, "The top 10 countries with most cases overall: ", "confirmed")
+extract_stat(today, "The top 10 countries with most percentage of cases: ", "norm_confirmed")
+
+# Same as above, but with countries of at least 1 million in population
+big_today <- filter(today, population > 1e6)
+
+extract_stat(big_today, "The top 10 big countries with most cases overall: ", "confirmed")
+extract_stat(big_today, "The top 10 big countries with most percentage of cases: ", "norm_confirmed")
+
+
+# Similarly, vaccinations can only grow over time
+extract_stat(today, "The top 10 countries with most overall vaccinations: ", "people_fully_vaccinated")
+extract_stat(today, "The top 10 countries with most vaccination rate: ", "norm_vaccinated")
+extract_stat(big_today, "The top 10 big countries with most overall vaccinations: ", "people_fully_vaccinated")
+extract_stat(big_today, "The top 10 big countries with most vaccination rate: ", "norm_vaccinated")
+```
+
+The first country to start the vaccination policy was...
+
+```{r}
+# It's not super easy to find. The record may not start at 1 for each country, and some countries
+# may have started vaccinating on the same day.
+
+# Let's transform the data: for each country, we will save the first day that the 
+# vaccination vector is not zero.
+
+get_first_vaccination_day <- function(data) {
+  countries <- unique(data$country)
+  
+  res <- list()
+  for (country in countries) {
+    cdata <- data[data$country == country,]
+    cdata <- cdata[! is.na(cdata$people_fully_vaccinated), ]
+    # When the data should be 0, it is signed as NA
+    res[[country]] <- cdata$date[order(cdata$date)][1]
+  }
+  
+  res
+}
+
+get_first_vaccination_day(covid) %>% unlist() %>% as.Date(lubridate::origin) %>% sort() %>% head(10)
+# Lithuania and Peru? How is that possible?
+```
+
+
+Select Italy and 5 countries of your interest. Then, plot with `ggplot2` the ratio of cases to the population over time.
+
+```{r}
+countries_of_interest = c("Italy", "United States", "Australia", "United Kingdom", "France")
+
+covid %>% filter(country %in% countries_of_interest) -> plot_covid
+
+plot_covid %>% drop_na("date", "norm_confirmed") %>%
+  ggplot(aes(x = date, y = norm_confirmed, color = country)) +
+  ggtitle("Approx. percentage of population ever infected") +
+  xlab("Day") + ylab("Cases") +
+  theme_minimal() +
+  geom_line()
+```
+
+Let's see just the start of the pandemic, from January 2020 to June 2020:
+
+```{r}
+plot_covid %>% drop_na("date", "norm_confirmed") %>%
+  filter(date >= "2020-01-01" & date < "2020-07-01") %>%
+  ggplot(aes(x = date, y = norm_confirmed, color = country)) +
+  ggtitle("Approx. percentage of population ever infected - Start of the pandemic") +
+  xlab("Day") + ylab("Cases") +
+  geom_line()
+```
+
+We can see the very early bump that happened in Italy at the start of the pandemic.
+
+We can also plot the number of new cases, but we first need to compute them:
+```{r}
+covid %>%
+  group_by(country) %>%
+  mutate(new_cases = c(confirmed[1], diff(confirmed))) -> covid
+
+# There might be less than zero due to recounts. We just set the recounts
+# to zero new cases
+covid$new_cases[covid$new_cases < 0] <- 0
+
+# Need to regen the plot_covid dataset
+covid %>% filter(country %in% countries_of_interest) -> plot_covid
+
+plot_covid %>% drop_na("date", "new_cases") %>%
+  ggplot(aes(x = date, y = new_cases, color = country)) +
+  ggtitle("Daily number of new confirmed cases") +
+  xlab("Day") + ylab("New cases") +
+  theme_minimal() +
+  geom_line()
+```
+
+```{r}
+plot_covid %>% drop_na("date", "new_cases") %>%
+  filter(date >= "2020-01-01" & date < "2020-07-01") %>%
+  ggplot(aes(x = date, y = new_cases, color = country)) +
+  ggtitle("Daily number of new confirmed cases - start of the pandemic") +
+  xlab("Day") + ylab("New cases") +
+  geom_line()
+```
+
+See how there are spikes in the reporting? We might be able to smooth them out by taking a window-sum of the data, but it's a bit outside of the scope.
+
+I have accidentally done the next step, of calculating the daily cases. I'll expand it by also calculating the number of daily deaths, and the daily number of new vaccinations:
+
+```{r}
+covid %>%
+  group_by(country) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(
+    new_vaccinations = c(people_fully_vaccinated[1], diff(people_fully_vaccinated)),
+    new_deaths = c(deaths[1], diff(deaths))
+  ) -> covid
+```
+
+To show the data in the clearest manner we can try to see a plot:
+
+```{r}
+covid %>%
+  filter(country == "Italy") %>%
+  drop_na("new_cases", "new_deaths", "new_vaccinations") %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = new_cases), color = "red") +
+  geom_line(aes(y = new_deaths), color = "black") +
+  geom_line(aes(y = new_vaccinations), color = "lightblue")
+
+```
+
+I really need to run a rolling average:
+
+```{r}
+# For this you need to have the library "zoo" installed
+rolling_average <- function(x, window = 7) {
+  zoo::rollapply(x, width = window, FUN = mean, partial = TRUE, align = "center")
+}
+
+covid %>%
+  group_by(country) %>%
+  arrange(date, .by_group = TRUE) %>% 
+  mutate(
+    smooth_new_cases = rolling_average(new_cases),
+    smooth_new_deaths = rolling_average(new_deaths),
+    smooth_new_vaccinations = rolling_average(new_vaccinations)
+  ) -> covid
+```
+
+We can now see if it worked with some plotting:
+
+```{r}
+# Need to regen the plot_covid dataset
+covid %>% filter(country %in% countries_of_interest) -> plot_covid
+
+plot_covid %>% drop_na("date", "smooth_new_cases") %>%
+  ggplot(aes(x = date, y = smooth_new_cases, color = country)) +
+  ggtitle("Daily number of new confirmed cases (7DA)") +
+  xlab("Day") + ylab("New cases") +
+  theme_minimal() +
+  geom_line()
+```
+
+Smooth like butter! Going back to the actual exercise:
+
+```{r}
+
+plot_covid_trend <- function(covid, country_name) {
+  covid %>%
+    filter(country == country_name) %>%
+    drop_na("smooth_new_cases", "smooth_new_deaths", "smooth_new_vaccinations") %>%
+    ggplot(aes(x = date)) +
+    geom_line(aes(y = smooth_new_cases), color = "red") +
+    geom_line(aes(y = smooth_new_deaths * 500), color = "black") +
+    geom_line(aes(y = smooth_new_vaccinations), color = "lightblue") +
+    scale_y_continuous(
+      name = "New Cases & New vaccinations", sec.axis = sec_axis(trans = ~./ 500, name = "New Deaths")
+    ) +
+    xlab("Date") +
+    ggtitle(paste0("New cases, vaccinations and deaths - ", country_name)) +
+    theme_minimal() -> p
+  
+  p
+}
+
+plot_covid_trend(covid, "Italy")
+
+```
+
+The effect of the vaccination is dramatic!
+
+```{r}
+plot_covid_trend(covid, "United States")
+```
+
+```{r}
+plot_covid_trend(covid, "France")
+```
+
+### TODO
+
+Considering the previous dataframe composed of number of daily cases daily deaths divide the data BEFORE and AFTER the start day of the vaccination campaign. Visualize the evolution of the pandemic. Compute the appropriate statistical test to compare BEFORE versus AFTER data.
+
+Starting for the original dataset: (i) select the country in which the vaccination policy started earlier (ii) the country in which the vaccination policy started the latest. Compare the daily trend of the cases with a suitable plot and comment on the results achieved.
+
+
