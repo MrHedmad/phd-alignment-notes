@@ -5,32 +5,40 @@ date: "2023-02-06"
 output: html_document
 ---
 
-There won't be any lesson tomorrow afternoon.
-There will be a new lesson Friday, the 17th of Feb, 2023, from 15:00 to 18:00.
+## Course Outline
 
-## Info
-
-- We will start with some R basics, some bioinformatics basics, and the some modelling.
-- Ppl familiar with R can just solve the exercises, without having to follow along.
+- We will start with some R basics, some bioinformatics basics, and then some modelling.
+- People familiar with R can just solve the exercises, without having to follow along.
 - The exam will be a small report of all these lessons, with perhaps a small input from each of us.
 
-There's a moodle website for this course.
+There's a Moodle website for this course.
 
 We don't need to install R studio or R as we can use the hosted versions provided by the department. People who have the R/Rstudio combo already in their laptops can just use their local version. I'm User13. I've saved the login info on a `secrets.txt` file that is not committed.
 
+The machines will remain online for the duration of the course.
+
 ## Covid19
 
-We will analyze covid19 data. There is a `COVID19` package to install, which contains a large dataframe with many variables regarding covid19 infections.
+We will analyze Covid-19 data. There is a `COVID19` package to install, which contains a large data frame with many variables regarding Covid-19 infections.
 
-The granularity of the dataset is country-level plus the Grand Princess cruise ship, that was studied in particular.
-The data are recorded day-wise.
+The granularity of the dataset is country-level plus the Grand Princess cruise ship (and other large ships), that was studied in particular. For each country, there is one entry per day.
 
-There are videos on the web for people who do not know R.
+There are videos on Moodle for people who do not know R, recorded by the professors to speed things along.
 
-Follow the `.pdf` for today's exercises on this dataframe.
+Follow the `.pdf` for today's exercises on this data frame.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+req_installed <- function(pkg) {
+  tryCatch(
+    invisible(find.package(pkg)),
+    error = function(e) {stop(paste0("Cannot find required package '", pkg, "'. Is it installed?"), call. = FALSE)})
+}
+# Some required packages
+req_installed("tidyverse")
+req_installed("COVID19")
+req_installed("zoo")
 ```
 
 ## Introduction
@@ -60,7 +68,6 @@ There are many variables in this dataset. For instance:
 We will select just a subset of the variables of interest to work with:
 
 ```{r}
-ccovid <- covid # Just to save it
 covid |>
   select(
     c(
@@ -85,17 +92,24 @@ summary(covid)
 
 ```{r}
 # Number of days that are in the dataset
-pprint("There are ", nrow(covid), " days in the dataset.\n")
+pprint("There are ", nrow(covid), " days in the dataset.\n\n")
 
 # Number of countries (with the Grand Princess as an extra)
-pprint("There are ", length(unique(covid$country)), " unique countries: ", paste0(unique(covid$country), collapse=", "))
+pprint("There are ", length(unique(covid$country)), " unique countries: ", paste0(sort(unique(covid$country)), collapse=", "))
 # There's the Holy See too!
 ```
 
 Through sorting, we can see the countries with the most number of cases, overall.
-This would be nice to be normalized by the number of people per country.
+This would be nice to be normalized by the number of people per country, as larger countries may tend to have more infected people.
+
+Reporting practices also need to be taken into account. Places like North Korea probably reported a lot less cases than what actually happened.
+
+Additionally, the normalization assumes that people may only get infected once. So it makes not too much sense when you take into account re-infections. In any case, it's a rough way to get a sense of how well a country has responded to the pandemic.
+
+For vaccination data, the rate of "full" vaccination changes based on what the definition of "full" vaccination is.
 
 ```{r}
+# Add the normalized values for confirmed cases and vaccinated people
 covid$norm_confirmed <- covid$confirmed / covid$population
 covid$norm_vaccinated <- covid$people_fully_vaccinated / covid$population
 
@@ -219,7 +233,7 @@ plot_covid %>% drop_na("date", "new_cases") %>%
   geom_line()
 ```
 
-See how there are spikes in the reporting? We might be able to smooth them out by taking a window-sum of the data, but it's a bit outside of the scope.
+See how there are spikes in the reporting? We might be able to smooth them out by taking a window-average of the data, but it's a bit outside of the scope.
 
 I have accidentally done the next step, of calculating the daily cases. I'll expand it by also calculating the number of daily deaths, and the daily number of new vaccinations:
 
@@ -246,7 +260,11 @@ covid %>%
 
 ```
 
-I really need to run a rolling average:
+There are a few issues with the above plot:
+- The data is very spiky;
+- The number of deaths (thank god) are on a very different scale than the number of new cases and vaccinations.
+
+Let's address the above considerations. I really need to run a rolling average. I guess a weekly average is ok:
 
 ```{r}
 # For this you need to have the library "zoo" installed
@@ -270,7 +288,7 @@ We can now see if it worked with some plotting:
 # Need to regen the plot_covid dataset
 covid %>% filter(country %in% countries_of_interest) -> plot_covid
 
-plot_covid %>% drop_na("date", "smooth_new_cases") %>%
+plot_covid %>% replace_na(list("date" = 0, "smooth_new_cases" = 0)) %>%
   ggplot(aes(x = date, y = smooth_new_cases, color = country)) +
   ggtitle("Daily number of new confirmed cases (7DA)") +
   xlab("Day") + ylab("New cases") +
@@ -285,17 +303,21 @@ Smooth like butter! Going back to the actual exercise:
 plot_covid_trend <- function(covid, country_name) {
   covid %>%
     filter(country == country_name) %>%
-    drop_na("smooth_new_cases", "smooth_new_deaths", "smooth_new_vaccinations") %>%
+    replace_na(list(smooth_new_cases = 0, smooth_new_deaths = 0, smooth_new_vaccinations = 0)) %>%
     ggplot(aes(x = date)) +
-    geom_line(aes(y = smooth_new_cases), color = "red") +
-    geom_line(aes(y = smooth_new_deaths * 500), color = "black") +
-    geom_line(aes(y = smooth_new_vaccinations), color = "lightblue") +
+    geom_line(aes(y = smooth_new_cases, color = "Daily Incidence")) +
+    geom_line(aes(y = smooth_new_deaths * 100, color = "Daily Deaths")) +
+    geom_line(aes(y = smooth_new_vaccinations, color = "Daily Vaccinations")) +
     scale_y_continuous(
-      name = "New Cases & New vaccinations", sec.axis = sec_axis(trans = ~./ 500, name = "New Deaths")
+      name = "Daily Incidence & Vaccinations", sec.axis = sec_axis(trans = ~./ 100, name = "Daily Deaths")
     ) +
+    scale_color_manual(values=c("black", "red", "lightblue")) +
     xlab("Date") +
-    ggtitle(paste0("New cases, vaccinations and deaths - ", country_name)) +
-    theme_minimal() -> p
+    ggtitle(paste0("New cases, vaccinations and deaths (7DA) - ", country_name)) +
+    theme_minimal() +
+    theme(
+      legend.position = "bottom", legend.title = element_blank()
+    ) -> p
   
   p
 }
@@ -314,10 +336,63 @@ plot_covid_trend(covid, "United States")
 plot_covid_trend(covid, "France")
 ```
 
+France is very similar to Italy in terms of these trends.
+
+```{r}
+plot_covid_trend(covid, "Germany")
+```
+
+```{r}
+plot_covid_trend(covid, "Japan")
+```
+
+Japan was very successful in preventing the worse of the pandemic.
+
+```{r}
+plot_covid_trend(covid, "Korea, South")
+```
+
+```{r}
+plot_covid_trend(covid, "China")
+```
+
+There was literally no reporting of what happened in China.
+
+```{r}
+# For laughs
+plot_covid_trend(covid, "Holy See")
+```
+
 ### TODO
 
-Considering the previous dataframe composed of number of daily cases daily deaths divide the data BEFORE and AFTER the start day of the vaccination campaign. Visualize the evolution of the pandemic. Compute the appropriate statistical test to compare BEFORE versus AFTER data.
+> Considering the previous dataframe composed of number of daily cases daily deaths divide the data BEFORE and AFTER the start day of the vaccination campaign. Visualize the evolution of the pandemic. Compute the appropriate statistical test to compare BEFORE versus AFTER data.
 
-Starting for the original dataset: (i) select the country in which the vaccination policy started earlier (ii) the country in which the vaccination policy started the latest. Compare the daily trend of the cases with a suitable plot and comment on the results achieved.
+The visualization of the pandemic trend is the same as above, where we see the peak of vaccination rates and then a general drop of the mortality of the disease.
+
+Finding a time-series statistical test is hard. The points are autocorrelated with their predecessors, more with the day directly before, slightly less with the day before, and so on.
+There are special tests that one can run to handle time series but I guess they are out of scope. We will simply see if there is a difference in the average mortality rate (e.g. number of deaths / number of cases) in various bins of data (e.g. every month), considering as if the bins are not correlated with one another.
+
+```{r}
+# First, we need to create the binned data for every time-period that we choose
+covid %>%
+  group_by(country) %>%
+  mutate(month = format(date, "%Y-%m")) %>%
+  group_by(month, .add = TRUE) %>%
+  mutate(
+    monthly_new_cases = na_if(mean(new_cases, na.rm = TRUE), NaN),
+    monthly_new_deaths = na_if(mean(new_deaths, na.rm = TRUE), NaN),
+    monthly_new_vaccinations = na_if(mean(new_vaccinations, na.rm = TRUE), NaN)
+  ) -> covid
+```
+
+```{r}
+covid %>%
+  filter(country == "Italy") %>%
+  ggplot(aes(x = month, y = monthly_new_cases)) +
+  geom_point()
+```
+
+
+> Starting for the original dataset: (i) select the country in which the vaccination policy started earlier (ii) the country in which the vaccination policy started the latest. Compare the daily trend of the cases with a suitable plot and comment on the results achieved.
 
 
