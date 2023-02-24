@@ -2,7 +2,9 @@
 title: "Lesson 1 - Cordero - The 6th of February, 2023"
 author: "Luca Visentin"
 date: "2023-02-06"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ## Course Outline
@@ -288,7 +290,7 @@ We can now see if it worked with some plotting:
 # Need to regen the plot_covid dataset
 covid %>% filter(country %in% countries_of_interest) -> plot_covid
 
-plot_covid %>% replace_na(list("date" = 0, "smooth_new_cases" = 0)) %>%
+plot_covid %>% replace_na(list("smooth_new_cases" = 0)) %>%
   ggplot(aes(x = date, y = smooth_new_cases, color = country)) +
   ggtitle("Daily number of new confirmed cases (7DA)") +
   xlab("Day") + ylab("New cases") +
