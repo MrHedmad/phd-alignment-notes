@@ -1,0 +1,138 @@
+---
+title: "Lesson 2 - Cordero - The 8th of February, 2023"
+output: html_notebook
+---
+
+## RNA-Seq data analysis
+
+> TODO:: Write a bit of an introduction to RNA-seq from the first ~10/15 slides
+
+```{r setup, include=FALSE}
+rm(list=ls()) # Clear the env
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.width = 10, fig.height = 8,
+  fig.pos = "center",
+  # IMPORTANT - If you are regenerating the notebook on your own machine,
+  # this needs to be set to the BCM folder, i.e in phd-alignment-notes/courses/BCM
+  root.dir = "/home/hedmad/Files/repos/phd-alignment-notes/"
+)
+
+req_installed <- function(pkg) {
+  tryCatch(
+    invisible(find.package(pkg)),
+    error = function(e) {
+      stop(
+        paste0(
+          "Cannot find required package '", pkg, "'. Is it installed?"
+        ),
+        call. = FALSE)}
+      )
+}
+# Some required packages
+req_installed("tidyverse")
+req_installed("DESeq2")
+req_installed("limma")
+```
+
+We will analyze some miRNA expression data with the `DESeq_2` and `limma` packages. The data is included in this repository, and it is from GEO with accession `GSE157859`. 
+
+```{r}
+library(tidyverse)
+raw_count_data <- read_tsv(
+  file.path(
+    ".", "data", "GSE157859_CPM_matrix_of_miRNA_all_Samples.txt")
+)
+```
+
+We need just a tiny bit of cleanup:
+- The ID should be the row names;
+- The `miRNA` and `miRNA_precursor` cols are useless.
+
+```{r}
+raw_count_data %>%
+  column_to_rownames("ID") %>%
+  select(-c(miRNA, miRNA_precursor)) -> count_data
+```
+
+We can now load the metadata file:
+
+```{r}
+metadata <- read_tsv(file.path(".", "data", "colData"), col_types = "cf")
+# Using read_tsv with column specification avoids the need to cast the
+# COVIDInfection column to factor.
+
+# There's a typo, we correct it
+metadata %>% rename(severity = "CODIVInfection") -> metadata
+
+metadata %>% column_to_rownames("Sample") -> metadata
+```
+
+```{r, eval=FALSE}
+# Here is how you could cast it, in theory, if you did not use `read_tsv`
+metadata$severity <- factor(metadata$severity, levels = c("mild", "moderate", "serious"))
+```
+
+DESeq needs the data in the correct order, so we reorder the columns:
+
+```{r}
+count_data <- select(count_data, row.names(metadata))
+```
+
+DESeQ wants integer count, as it wants to normalize it by itself. We just don't care and use `round`:
+
+```{r}
+dds_data <- DESeq2::DESeqDataSetFromMatrix(
+  round(count_data),
+  metadata,
+  design = ~severity
+)
+
+dds_obj <- DESeq2::DESeq(dds_data)
+```
+
+Now, the `dds_obj` contains the result from the DESeQ analysis, one for each different contrast (e.g. `mild` vs `severe`):
+
+```{r}
+DESeq2::results(dds_obj)
+```
+
+Let's explore the serious vs mild condition:
+
+```{r}
+s_v_m <- DESeq2::results(dds_obj, name = "severity_serious_vs_mild")
+```
+
+We can now extract differentially expressed miRNAs:
+
+```{r}
+extract_degs <- function(res, alpha = 0.05) {
+  res <- as.data.frame(res)
+  
+  res[!is.na(res$padj) & res$padj < alpha,]
+}
+
+degs <- extract_degs(s_v_m)
+
+degs
+```
+
+If we need to have the miRNA names, they are in the original dataset (`raw_count_data`):
+
+```{r}
+deg_names <- raw_count_data %>% filter(ID %in% row.names(degs)) %>% select(c("miRNA"))
+```
+
+Limma uses linear models to predict DEGs, while DESeq uses GLMs with a negative binomial error estimate. SO they are pretty similar:
+
+```{r}
+# Let's run limma
+design_matrix <- model.matrix(~severity, metadata)
+fits <- limma::lmFit(count_data, design_matrix)
+lm_bayes <- limma::eBayes(fits)
+
+limma::topTable(lm_bayes)
+```
+
+> Try to see if the outputs from DESeQ2 and limma are different

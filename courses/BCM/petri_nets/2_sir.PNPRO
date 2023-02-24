@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- This project file has been saved by the New GreatSPN Editor, v.100 --><project name="2_sir" version="121">
+  <gspn name="GSPN" show-color-cmd="false" show-fluid-cmd="false" zoom="200">
+    <nodes>
+      <place label-y="2.0" marking="997" name="Susceptible" x="4.0" y="6.0"/>
+      <transition delay="0.0004" delay-x="-1.0" delay-y="2.0" label-x="-1.0" label-y="-2.0" name="Infection" nservers-x="0.5" type="EXP" x="9.55" y="6.0"/>
+      <place label-x="1.0" label-y="-2.0" marking="3" name="Infected" x="14.0" y="6.0"/>
+      <transition delay="0.04" delay-x="-0.5" delay-y="2.0" label-x="1.0" label-y="-2.0" name="Recovery" nservers-x="0.5" type="EXP" x="19.55" y="6.0"/>
+      <place label-y="2.0" name="Recovered" x="24.0" y="6.0"/>
+    </nodes>
+    <edges>
+      <arc head="Infection" kind="INPUT" tail="Susceptible"/>
+      <arc head="Infection" kind="INPUT" tail="Infected">
+        <point x="12.5" y="5.0"/>
+      </arc>
+      <arc head="Recovery" kind="INPUT" tail="Infected"/>
+      <arc head="Recovered" kind="OUTPUT" tail="Recovery"/>
+      <arc head="Infected" kind="OUTPUT" mult="2" mult-k="1.02744140625" mult-x="1.2791839705705854E-4" mult-y="1.2238750103296638" tail="Infection">
+        <point x="12.5" y="9.0"/>
+      </arc>
+    </edges>
+  </gspn>
+  <measures gspn-name="GSPN" name="Measures" simplified-UI="false">
+    <assignments/>
+    <greatspn/>
+    <formulas>
+      <formula comment="Basic statistics of the toolchain execution." language="STAT"/>
+      <formula comment="All the basic Petri net measures" language="ALL"/>
+    </formulas>
+  </measures>
+</project>

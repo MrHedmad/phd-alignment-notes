@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- This project file has been saved by the New GreatSPN Editor, v.100 --><project name="1_example" version="121">
+  <gspn name="Simple Net" show-color-cmd="false" show-fluid-cmd="false" zoom="200">
+    <nodes>
+      <place label-y="2.0" marking="6" name="Reagent_B" x="3.0" y="9.0"/>
+      <transition delay-x="-0.5" delay-y="2.0" label-y="-2.0" name="T0" nservers-x="0.5" type="EXP" x="8.55" y="6.0"/>
+      <place label-y="-2.0" marking="4" name="Reagent_A" x="3.0" y="2.0"/>
+      <place label-y="2.0" name="Product_C" x="13.0" y="6.0"/>
+      <text-box border-color="#000000" fill-color="none" height="4.5" horiz-pos="2" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" text-size="VERY_SMALL" vert-pos="0" width="8.0" x="11.0" y="0.75">The "Play" button lets
+you trigger the transitions
+manually, to see if and
+how the net works.</text-box>
+    </nodes>
+    <edges>
+      <arc head="T0" kind="INPUT" tail="Reagent_A"/>
+      <arc head="T0" kind="INPUT" tail="Reagent_B"/>
+      <arc head="Product_C" kind="OUTPUT" tail="T0"/>
+    </edges>
+  </gspn>
+  <gspn name="P-Semiflows" show-color-cmd="false" show-fluid-cmd="false" zoom="200">
+    <nodes>
+      <place marking="20" name="Reagent_A" x="7.0" y="9.0"/>
+      <place label-x="-0.5" label-y="-1.5" marking="4" name="Reagent_B" x="7.0" y="3.0"/>
+      <transition delay-y="-0.5" label-x="0.5" label-y="-2.0" name="Event1" nservers-x="0.5" type="EXP" x="12.55" y="3.0"/>
+      <place label-x="3.5" label-y="0.0" name="Product_C" x="17.0" y="6.0"/>
+      <transition label-y="-2.0" name="Event2" nservers-x="0.5" type="EXP" x="12.55" y="9.0"/>
+      <text-box border-color="#000000" fill-color="none" height="2.75" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" text-size="VERY_SMALL" vert-pos="0" x="18.0" y="0.625">This is a very simple net,
+but the net rate of generation of B is 1,
+while 2 are consumed. </text-box>
+      <text-box border-color="#000000" fill-color="none" height="6.0" name="__textBox1" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" text-size="VERY_SMALL" vert-pos="0" width="10.25" x="17.875" y="11.0">The P-semiflow of the model
+shows exactly this, which nodes
+in the model remain constant
+and which get depleted/grow.
+
+In this case, A/C/A are in a
+semiflow, but B/C/B is not. </text-box>
+    </nodes>
+    <edges>
+      <arc head="Event1" kind="INPUT" mult="2" mult-x="0.0" mult-y="-1.5" tail="Reagent_B"/>
+      <arc head="Event1" kind="INPUT" tail="Reagent_A"/>
+      <arc head="Product_C" kind="OUTPUT" tail="Event1"/>
+      <arc head="Event2" kind="INPUT" tail="Product_C"/>
+      <arc head="Reagent_A" kind="OUTPUT" tail="Event2"/>
+      <arc head="Reagent_B" kind="OUTPUT" tail="Event2">
+        <point x="13.0" y="14.0"/>
+        <point x="5.5" y="14.0"/>
+        <point x="5.5" y="4.0"/>
+      </arc>
+    </edges>
+  </gspn>
+  <gspn name="P-Semiflow, not connected" show-color-cmd="false" show-fluid-cmd="false" zoom="200">
+    <nodes>
+      <place marking="1" name="P0" x="3.0" y="2.0"/>
+      <transition name="T0" nservers-x="0.5" type="EXP" x="9.55" y="2.0"/>
+      <place marking="1" name="P1" x="15.0" y="2.0"/>
+      <text-box border-color="#000000" fill-color="none" height="3.75" horiz-pos="2" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" text-size="VERY_SMALL" vert-pos="0" width="7.375" x="6.3125" y="5.125">This system is balanced
+in the P-semiflow, but
+B does not "regenerate"
+over time.</text-box>
+    </nodes>
+    <edges>
+      <arc head="T0" kind="INPUT" tail="P0"/>
+      <arc head="P1" kind="OUTPUT" tail="T0"/>
+    </edges>
+  </gspn>
+  <gspn name="T-Semiflow" show-color-cmd="false" show-fluid-cmd="false" zoom="150">
+    <nodes>
+      <place marking="1" name="P0" x="4.0" y="6.0"/>
+      <transition delay-x="-0.5" delay-y="2.0" name="T0" nservers-x="0.5" type="EXP" x="9.55" y="9.0"/>
+      <place marking="1" name="P1" x="14.0" y="6.0"/>
+      <transition delay-x="-0.5" delay-y="2.0" name="T1" nservers-x="0.5" type="EXP" x="9.55" y="3.0"/>
+      <text-box bold="true" border-color="#000000" fill-color="none" height="4.0" horiz-pos="2" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" vert-pos="0" width="14.5" x="18.75" y="5.0">The T-semiflows tell us what
+nodes are, over time balanced.
+E.g. they  "regenerate"</text-box>
+    </nodes>
+    <edges>
+      <arc head="T0" kind="INPUT" tail="P0"/>
+      <arc head="P0" kind="OUTPUT" tail="T1"/>
+      <arc head="P1" kind="OUTPUT" tail="T0"/>
+      <arc head="T1" kind="INPUT" tail="P1"/>
+    </edges>
+  </gspn>
+  <measures gspn-name="P-Semiflows" name="Measures" simplified-UI="false">
+    <assignments/>
+    <greatspn/>
+    <formulas>
+      <formula comment="Basic statistics of the toolchain execution." language="STAT"/>
+      <formula comment="All the basic Petri net measures" language="ALL"/>
+    </formulas>
+  </measures>
+</project>
