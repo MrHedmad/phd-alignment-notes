@@ -1,3 +1,9 @@
+> **Archival notice**
+>
+> This repository is read-only as it's meant to be read-only.
+>
+> Hedmad
+
 # Phd Re-alignment courses notes
 Notes and code on the alignment courses for the PhD in Complex Systems for Quantitative Bioscience.
 
